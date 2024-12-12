@@ -1,0 +1,146 @@
+---
+title: "The Impact of Hurricane Milton on Florida Home Prices"
+subtitle: "Term paper for SURVMETH 727"
+author: "Zhaoyun Fan"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+number_sections: yes
+fontsize: 11pt
+always_allow_html: true
+---
+
+```{r setup, include=FALSE, tidy=TRUE}
+knitr::opts_chunk$set(echo = FALSE, cache = TRUE, 
+                      autodep = TRUE, cache.comments = FALSE,
+                      message = FALSE, warning = FALSE,
+                      fig.width = 7, fig.height = 5)
+```
+
+```{r error=FALSE, warning=FALSE, message=FALSE}
+library(dplyr)
+library(rvest)
+library(httr)
+library(stringr)
+library(jsonlite)
+library(leaflet)
+library(ggplot2)
+library(ggmap)
+```
+
+# 1 Abstract
+
+This project analyzes the impact of Hurricane Milton on Florida home prices using data from the Federal Reserve Economic Data (FRED) API and Redfin. The research focuses on several key metrics: median home prices, price per square foot, inventory levels, days on market, and sales volume. Three main questions guide this study: (1) How did Hurricane Milton affect the Florida real estate market compared to the same period in previous years? (2) What were the changes in key real estate metrics before and after the hurricane? (3) How did the impact vary geographically across Florida? By conducting trend and comparative analyses, the findings reveal significant fluctuations in median home prices and inventory levels, more pronounced than in previous years, with coastal areas experiencing greater disruptions. This study provides insights into the resilience and vulnerability of Florida’s housing market to natural disasters.
+
+**GitHub Link**: https://github.com/uFreya/SURV727_Final
+
+# 2 Introduction
+
+In recent years, the impact of natural disasters on housing markets has become a significant area of study, particularly in regions frequently exposed to extreme weather events. Hurricanes, as one of the most destructive natural disasters, can disrupt housing prices, inventory, and overall market trends. This report aims to examine the effects of Hurricane Milton on Florida’s real estate market and explore how housing markets respond to such disasters.
+
+Florida, due to its geographical location, is frequently subjected to hurricanes, making it a valuable case study for understanding the economic impacts of these events. Hurricane Milton caused extensive damage throughout the state, but this report focuses on analyzing key housing metrics before and after the hurricane to capture the immediate disruptions and recovery patterns. Specifically, we compare median prices, inventory levels, days on market, and sales volume to assess the short-term and long-term impacts.
+
+To provide a comprehensive analysis, this report also compares housing market trends during Hurricane Milton’s season with those in previous hurricane seasons. This contextual comparison helps determine whether the fluctuations experienced during Hurricane Milton conform to typical seasonal trends or demonstrate unique characteristics.
+
+Furthermore, due to the uneven development across Florida and the geographical differences in hurricane impacts, this report analyzes the differential impact of the hurricane on various regions' real estate markets. The focus is on variations in median home prices and sales volumes across different areas. By examining these indicators before and after the hurricane, we aim to identify which regions exhibit greater resilience in the face of such disasters.
+
+Through the exploration of these issues, this report seeks to provide a clearer understanding of how natural disasters affect housing markets. The findings can assist policymakers, real estate professionals, and communities in better preparing for and responding to future disasters, ensuring more robust and adaptable housing markets in the face of extreme weather events.
+
+# 3 Methodology
+
+## 3.1 Data Source
+
+The data sources for this analysis include the Federal Reserve Economic Data (FRED) API and housing market data from Redfin. Specifically, data on key metrics such as median home prices, price per square foot, inventory levels, days on market, and sales volume were collected. The study focuses on a four-week period before and after Hurricane Milton (09/23/2024 - 10/20/2024) and includes a comparative analysis with the same period during the hurricane seasons in the prior three years.
+
+## 3.2 Methods
+
+### Step 1: Acquiring Data from FRED API and Redfin
+
+The initial step involves obtaining data from two primary sources. Monthly data for the Median Listing Price in Florida is retrieved via the Federal Reserve Economic Data (FRED) API, providing a reliable measure of statewide listing price trends. Additionally, comprehensive Housing Market Data is downloaded as CSV files from Redfin, encompassing various critical metrics for a detailed market analysis.
+
+### Step 2: Data Cleaning
+
+During this step, data from FRED and Redfin is cleaned and prepared for analysis. For the FRED data, only the past three years are retained to ensure relevance. Redfin data is filtered to include Florida-specific records. Key metrics such as median home prices, price per square foot, inventory levels, days on market, and sales volume are extracted, focusing on weekly data surrounding the Hurricane Milton period. Geographic coordinates (latitude and longitude) for Florida regions are generated using fl_map to facilitate geographic analysis.
+
+### Step 3: Comparative Analysis with Previous Years
+
+This step involves comparing the Median Listing Price in Florida during the period impacted by Hurricane Milton with the same period in previous years. Historical data is used as a benchmark to determine whether the observed changes align with normal seasonal variations or represent anomalies.
+
+### Step 4: Trend Analysis Before and After the Hurricane
+
+A trend analysis examines changes in key real estate metrics before and after Hurricane Milton. Time series data for median home prices, inventory levels, price per square foot, days on market, and sales volume are plotted to highlight immediate impacts and longer-term trends.
+
+### Step 5: Geographic Distribution Analysis
+
+The final step analyzes the geographic distribution of changes across different regions of Florida, considering the geographical disparities in Hurricane Milton's impact. Using the previously obtained geographic coordinates, the analysis visualizes and assesses how various regions were affected in terms of median sale home prices, providing insights into regional resilience and vulnerability.
+
+# 4 Findings
+
+## 4.1 Comparative Analysis of Median Listing Price with Previous Years
+```{r include_median_price_plot, echo=FALSE,label='fig1',fig.cap="Median Listing Price Trends Over the Last Three Years", fig.align='center', fig.width=9, out.width="100%"}
+knitr::include_graphics("median_listing_price_plot.png")
+```
+The above figure illustrates the median listing price trends for houses in Florida over the past three years, showing significant fluctuations. Notably, it reveals a consistent downturn in median listing prices during the hurricane season from August to October each year.
+
+## 4.2 Trend Analysis: Key Real Estate Metrics Before and After Hurricane Milton
+
+```{r include_combined_plot2, echo=FALSE, label='fig2a', fig.cap="Trend Analysis of Key Real Estate Metrics Before Hurricane Milton", fig.align='center', fig.width=9, out.width="100%"}
+knitr::include_graphics("combined_plot1.png")
+```
+#### Average Median Sale Price Per Square Foot (PPSF):
+The average median sale price per square foot fluctuated in the days leading up to October 7, 2024, which then saw a dramatic drop, marking a significant low point. This reflects heightened market concerns regarding the approaching hurricane. Interestingly, the metric quickly rebounded in the days that followed, albeit with continued fluctuations, suggesting a restoration of market confidence and stability.
+
+#### Average Adjusted Average Homes Sold:
+The trend in the average adjusted homes sold remained relatively stable until October 7, 2024, when it experienced a sharp decline. This abrupt decrease likely reflects the cautious behavior of both buyers and sellers in anticipation of the hurricane. Nonetheless, the metric demonstrated a marked recovery in the following week, highlighting the market's resilience in overcoming short-term disruptions.
+
+```{r include_combined_plot2, echo=FALSE, label='fig2', fig.cap="Trend Analysis of Key Real Estate Metrics Before Hurricane Milton", fig.align='center', fig.width=9, out.width="100%"}
+knitr::include_graphics("combined_plot2.png")
+```
+#### Average Median Days on Market:
+The average median days on market exhibited fluctuations prior to October 7, 2024. However, on this date, there was a pronounced spike, representing an extreme value. This indicates significantly longer durations for which homes remained on the market as Hurricane Milton approached, reflecting increased market uncertainty. In the subsequent week, while the metric gradually stabilized, the earlier fluctuations persisted.
+
+#### Average Active Listings:
+The average number of active listings showed a significant decrease on October 7, 2024, indicating that sellers were retracting their listings in response to the imminent hurricane. Despite this, the market displayed a steady recovery to previous levels in the subsequent week, underscoring the market's capacity for rapid adjustment following the hurricane.
+
+## 4.3 Geographic Impact Disparities Across Florida
+```{r include_median_price_plot_1, echo=FALSE, label='fig3', fig.cap="Geographic Impact Disparities Across Florida", fig.align='center', fig.width=9, out.width="100%"}
+knitr::include_graphics("median_sale_price_plot.png")
+```
+
+#### Southern Florida:
+The southern region, particularly around Miami, consistently displayed the highest median sale prices across all three time points. The data suggest that housing prices in this area remained stable and largely unaffected by the hurricane on October 6, 2024. This stability may reflect the strong demand and economic resilience characteristic of urban markets in this region.
+
+#### Central Florida:
+Central Florida experienced a notable decline in median sale prices between September 29, 2024, and October 6, 2024, likely as a direct consequence of the hurricane. This decline may indicate disruptions in housing demand or damage to properties in the affected areas. The impact aligns with the hurricane's path through this region, as shown in Figure 5. While some recovery was evident by October 13, 2024, certain counties still exhibited lower prices compared to pre-hurricane levels, suggesting ongoing economic or infrastructural challenges.
+
+#### Northern Florida:
+The northern region exhibited heterogeneous trends during the observed period. While several counties maintained stable housing prices, others experienced an increase in median sale prices following the hurricane. This upward trend could be attributed to short-term relocation demand from hurricane-impacted areas, as buyers and renters sought housing in safer regions.
+
+```{r include_Milton_path, echo=FALSE, label='fig5', fig.cap="Milton's Path and Rainfall Distribution.  (Graphic Source: Renée Rigdon, CNN)", fig.align='center', fig.width=8, fig.height=5, out.width="60%"}
+knitr::include_graphics("Milton path.jpg")
+```
+
+# 5 Conclusion and Discussion
+
+This study examined the effects of Hurricane Milton on Florida's housing market, with a focus on key real estate metrics and geographic disparities. The findings provide meaningful insights into the market's resilience and its response to natural disasters.
+
+The analysis identified notable disruptions attributed to Hurricane Milton, including a significant decline in median sale prices per square foot, a reduction in active listings, and an increase in median days on market during the hurricane’s approach. Nevertheless, the rapid recovery of these metrics in the weeks that followed highlights the market’s resilience and its ability to recover from short-term shocks. 
+
+When contextualized within historical trends, the fluctuations observed during Hurricane Milton align with the seasonal patterns typically experienced during hurricane season. The slowdown in real estate activity from August to October each year suggests that the disruptions caused by Hurricane Milton were not anomalous but rather reflective of recurring seasonal dynamics. 
+
+The geographic impact of the hurricane varied markedly across Florida. Southern Florida demonstrated considerable stability, with minimal disruptions to median sale prices, likely indicative of the region’s economic robustness and urban resilience. In contrast, Central Florida experienced a pronounced decline in median sale prices, directly attributable to the hurricane’s path. Northern Florida displayed heterogeneous outcomes, with some areas registering increases in median sale prices, potentially driven by short-term relocation demand as individuals sought housing in less affected regions. 
+
+Future research could build on these findings by investigating the impacts of comparable natural disasters in other regions, exploring broader spatial and temporal trends, and integrating additional variables such as infrastructure damage and insurance claims. Such endeavors would contribute to a deeper understanding of how natural disasters influence housing markets and inform strategies for enhancing regional resilience and recovery. 
+
+\newpage
+
+# 6 Reference
+Bin, O., & Polasky, S. (2004). Effects of flood hazards on property values: evidence before and after Hurricane Floyd. Land Economics, 80(4), 490-500.  
+Murphy, A., & Strobl, E. (2009). The impact of hurricanes on housing prices: evidence from US coastal cities.  
+Burton, C. G. (2010). Social vulnerability and hurricane impact modeling. Natural Hazards Review, 11(2), 58-68.  
+Fang, L., Li, L., & Yavas, A. (2021). The impact of distant hurricane on local housing markets. The Journal of Real Estate Finance and Economics, 1-46.  
+O'Kruk, A., Stiles, M., Rigdon, R., Merrill, C., Warnes, S., & Choi, A. (2024). Maps and charts: Visualizing Milton’s historic impact across Florida. CNN. https://www.cnn.com/2024/10/10/weather/map-charts-milton-hurricane-dg  
+Redfin. (2024). Redfin Weekly Housing Market Data. Redfin. https://www.redfin.com/news/data-center  
+Federal Reserve Bank of St. Louis. (2024). Housing Inventory: Median Listing Price in Florida. FRED. https://fred.stlouisfed.org/series/MEDLISPRIFL
