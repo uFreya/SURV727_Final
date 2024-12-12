@@ -1,0 +1,316 @@
+---
+title: "Final_pre_visualization"
+author: "Zhaoyun Fan"
+date: "2024-12-03"
+output: pdf_document
+---
+
+```{r include= FALSE}
+library(data.table)
+library(dplyr)
+library(lubridate)
+library(ggplot2)
+library(shiny)
+library(leaflet)
+library(ggmap)
+library(stringr)
+library(viridis)
+library(RColorBrewer)
+library(patchwork)
+library(scales)
+```
+```{r}
+file_p <- "D:/master/SURV 727/county_market_tracker.tsv000.gz"
+data_c <- fread(file_p)
+```
+```{r}
+head(data_c)
+head(data_c$state_code)
+data_c <- data_c %>% filter(state_code == "FL")
+```
+
+
+```{r}
+file_pa <- "D:/master/SURV 727/filtered_data.csv"
+data_w <- fread(file_pa)
+head(data_w)
+
+```
+
+
+
+
+
+```{r}
+# data cleaning : create a function based on region_name 
+clean_region_name <- function(region_name) {
+  cleaned_name <- str_remove(region_name, ", FL metro area")
+  cleaned_name <- str_remove(cleaned_name, ", FL")
+  cleaned_name <- trimws(cleaned_name)  
+  cleaned_name <- ifelse(str_detect(cleaned_name, " County"), cleaned_name, paste(cleaned_name, "County"))
+  return(cleaned_name)
+}
+
+
+filtered_data$clean_region_name <- clean_region_name(filtered_data$region_name)
+
+
+fl_map <- map_data("county", "florida")
+fl_map$clean_region_name <- paste(str_to_title(fl_map$subregion), "County")
+
+# aggregated data (longitude & latitude)
+fl_map_aggregated <- fl_map %>%
+  group_by(clean_region_name) %>%
+  summarize(long = mean(long), lat = mean(lat))
+print(head(filtered_data))
+print(head(fl_map_aggregated))
+
+# join filtered_data
+filtered_data_county <- filtered_data %>%
+  filter(str_detect(clean_region_name, "County"))
+
+filtered_data_city <- filtered_data %>%
+  filter(!str_detect(clean_region_name, "County"))
+
+county_data <- filtered_data_county %>%
+  left_join(fl_map_aggregated, by = "clean_region_name")
+
+county_data <- filtered_data_county %>%
+  left_join(fl_map, by = "clean_region_name")
+
+manual_geocoded_data <- data.frame(
+  clean_region_name = c("Orlando", "Lake City", "Alachua", "Arcadia", "Baker", "Bay", "Bradford", "Brevard"),
+  long = c(-81.379236, -82.639289, -82.3568, -81.857482, -82.301772, -85.660206, -82.171364, -80.715593),
+  lat = c(28.538336, 30.189675, 29.651634, 27.215883, 30.401079, 30.180246, 29.944509, 28.263932)
+)
+
+city_data <- filtered_data_city %>%
+  left_join(manual_geocoded_data, by = "clean_region_name")
+
+merged_data <- bind_rows(county_data, city_data)
+print(head(merged_data))
+```
+
+```{r}
+# create a shiny plot
+ui <- fluidPage(
+  titlePanel("Florida Housing Prices Heatmap"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("date", "Select Date (by period_end):", choices = unique(merged_data$period_end)),
+      checkboxInput("show_homes_sold", "Show Adjusted Average Homes Sold", TRUE),
+      checkboxInput("show_median_price", "Show Median Sale Price", FALSE)
+    ),
+    mainPanel(
+      leafletOutput("map")
+    )
+  )
+)
+
+server <- function(input, output, session) {
+  # filtered data
+  filtered_data_reactive <- reactive({
+    req(input$date)
+    merged_data %>% 
+      filter(period_end == as.Date(input$date))
+  })
+  
+  output$map <- renderLeaflet({
+    leaflet() %>%
+      addTiles() %>%
+      setView(lng = -82, lat = 27.8, zoom = 6)  
+  })
+  
+  observe({
+    data <- filtered_data_reactive()
+    
+    leafletProxy("map", data = data) %>%
+      clearMarkers()
+    
+    if (input$show_homes_sold) {
+      pal <- colorNumeric("YlOrRd", data$adjusted_average_homes_sold, na.color = "transparent")
+      
+      leafletProxy("map", data = data) %>%
+        addCircleMarkers(
+          lng = ~long, lat = ~lat,
+          color = ~pal(adjusted_average_homes_sold),
+          radius = 8,
+          fillOpacity = 0.7,
+          popup = ~paste0("<b>", region_name, "</b><br>",
+                          "Adjusted Avg. Homes Sold: ", adjusted_average_homes_sold, "<br>")
+        ) %>%
+        addLegend("bottomright", pal = pal, values = ~adjusted_average_homes_sold, 
+                  title = "Adjusted Avg. Homes Sold",
+                  opacity = 1)
+    }
+    
+    if (input$show_median_price) {
+      pal <- colorNumeric("BuPu", data$median_sale_price, na.color = "transparent")
+      
+      leafletProxy("map", data = data) %>%
+        addCircleMarkers(
+          lng = ~long, lat = ~lat,
+          color = ~pal(median_sale_price),
+          radius = 8,
+          fillOpacity = 0.7,
+          popup = ~paste0("<b>", region_name, "</b><br>",
+                          "Median Sale Price: $", median_sale_price, "<br>")
+        ) %>%
+        addLegend("bottomright", pal = pal, values = ~median_sale_price, 
+                  title = "Median Sale Price",
+                  opacity = 1)
+    }
+  })
+}
+
+shinyApp(ui = ui, server = server)
+```
+
+```{r}
+# Adjusted Average Homes Sold plot
+plot_adjusted_homes_sold <- function(dates_selected) {
+  data_selected <- merged_data %>%
+    filter(period_end %in% dates_selected)
+  
+  ggplot(data_selected) +
+    geom_polygon(aes(x = long, y = lat, group = group, fill = adjusted_average_homes_sold), color = "black") +
+    scale_fill_distiller(palette = "YlOrRd", name = "Adjusted Avg. Homes Sold") +  
+    coord_fixed(ratio = 1) +
+    labs(title = "Adjusted Average Homes Sold in Florida",
+         x = "Longitude",
+         y = "Latitude") +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      plot.background = element_rect(fill = "white", color = "white"),
+      strip.text = element_text(size = 14)  
+    ) +
+    facet_wrap(~ period_end, ncol = length(dates_selected)) 
+}
+
+#  Median Sale Price plot
+plot_median_sale_price <- function(dates_selected) {
+  data_selected <- merged_data %>%
+    filter(period_end %in% dates_selected)
+  
+  ggplot(data_selected) +
+    geom_polygon(aes(x = long, y = lat, group = group, fill = median_sale_price), color = "black") +
+    scale_fill_distiller(palette = "RdYlBu", name = "Median Sale Price") +  
+    coord_fixed(ratio = 1) +
+    labs(title = "Median Sale Price in Florida",
+         x = "Longitude",
+         y = "Latitude") +
+    theme_minimal() +
+    theme(
+      panel.background = element_rect(fill = "white", color = "black"),
+      plot.background = element_rect(fill = "white", color = "white"),
+      strip.text = element_text(size = 14)  
+    ) +
+    facet_wrap(~ period_end, ncol = length(dates_selected))  
+}
+
+# date selection
+dates_selected <- as.Date(c("2024-09-29", "2024-10-06", "2024-10-13"))
+
+# Adjusted Average Homes Sold Plot
+adjusted_homes_sold_plot <- plot_adjusted_homes_sold(dates_selected)
+print(adjusted_homes_sold_plot)
+ggsave("adjusted_homes_sold_plot.png", plot = adjusted_homes_sold_plot, width = 20, height = 10)
+
+# Median Sale Price Plot
+median_sale_price_plot <- plot_median_sale_price(dates_selected)
+print(median_sale_price_plot)
+ggsave("median_sale_price_plot.png", plot = median_sale_price_plot, width = 20, height = 10)
+
+```
+
+```{r}
+
+data_w <- data_w %>%
+  mutate(
+    period_begin = as.Date(period_begin, format = "%Y-%m-%d"),
+    period_end = as.Date(period_end, format = "%Y-%m-%d")
+  )
+
+target_begin <- as.Date("2024-10-07")
+target_end <- as.Date("2024-10-13")
+
+# filtered data
+filtered_data <- data_w %>%
+  filter(period_begin >= (target_begin - 14) & period_end <= (target_end + 14))
+
+# aggregate data 
+aggregated_data <- filtered_data %>%
+  group_by(period_begin) %>%
+  summarise(
+    avg_median_sale_price = mean(median_sale_price, na.rm = TRUE),
+    avg_median_days_on_market = mean(median_days_on_market, na.rm = TRUE),
+    avg_adjusted_average_homes_sold = mean(adjusted_average_homes_sold, na.rm = TRUE),
+    avg_active_listings = mean(active_listings, na.rm = TRUE),
+    avg_median_sale_ppsf = mean(median_sale_ppsf, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+
+# label setting
+date_format <- scale_x_date(date_labels = "%Y-%m-%d", date_breaks = "1 week")
+
+
+# Average Median Sale Price Per Square Foot
+p2 <- ggplot(aggregated_data, aes(x = period_begin, y = avg_median_sale_ppsf)) +
+  geom_line(color = "#33a02c") + 
+  geom_point(color = "#33a02c") +
+  geom_vline(xintercept = as.numeric(target_begin), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_vline(xintercept = as.numeric(target_end), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_text(aes(label = paste0("$", round(avg_median_sale_ppsf, 2))), vjust = -1, color = "#33a02c", size = 3) +
+  theme_minimal() +
+  date_format +
+  labs(title = "Average Median Sale Price Per Square Foot", x = "Date", y = "Price (USD)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Average Adjusted Average Homes Sold
+p3 <- ggplot(aggregated_data, aes(x = period_begin, y = avg_adjusted_average_homes_sold)) +
+  geom_line(color = "#6a3d9a") + 
+  geom_point(color = "#6a3d9a") +
+  geom_vline(xintercept = as.numeric(target_begin), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_vline(xintercept = as.numeric(target_end), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_text(aes(label = round(avg_adjusted_average_homes_sold, 1)), vjust = -1, color = "#6a3d9a", size = 3) +
+  theme_minimal() +
+  date_format +
+  labs(title = "Average Adjusted Average Homes Sold", x = "Date", y = "Homes Sold") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Average Median Days on Market
+p4 <- ggplot(aggregated_data, aes(x = period_begin, y = avg_median_days_on_market)) +
+  geom_line(color = "#b2df8a") + 
+  geom_point(color = "#b2df8a") +
+  geom_vline(xintercept = as.numeric(target_begin), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_vline(xintercept = as.numeric(target_end), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_text(aes(label = round(avg_median_days_on_market, 0)), vjust = -1, color = "#b2df8a", size = 3) +
+  theme_minimal() +
+  date_format +
+  labs(title = "Average Median Days on Market", x = "Date", y = "Days") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Average Active Listings
+p5 <- ggplot(aggregated_data, aes(x = period_begin, y = avg_active_listings)) +
+  geom_line(color = "#a6cee3") + 
+  geom_point(color = "#a6cee3") +
+  geom_vline(xintercept = as.numeric(target_begin), color = "#ff9999", linetype = "dashed", size = 1) +
+  geom_vline(xintercept = as.numeric(target_end), color = "#ff9999", linetype = "dashed", size = 1) + 
+  geom_text(aes(label = round(avg_active_listings, 0)), vjust = -1, color = "#a6cee3", size = 3) +
+  theme_minimal() +
+  date_format +
+  labs(title = "Average Active Listings", x = "Date", y = "Listings") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# plot combination
+combined_plot1 <- p2 + p3 + plot_layout(ncol = 2)
+combined_plot2 <- p4 + p5 + plot_layout(ncol = 2)
+
+# save plot
+ggsave("combined_plot1.png", plot = combined_plot1, width = 12, height = 6, dpi = 300)
+ggsave("combined_plot2.png", plot = combined_plot2, width = 12, height = 6, dpi = 300)
+combined_plot1
+combined_plot2
+```
