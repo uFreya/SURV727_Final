@@ -1,0 +1,54 @@
+---
+title: "Fred API"
+author: "Zhaoyun Fan"
+date: "2024-12-03"
+output: pdf_document
+---
+
+```{r}
+# Median Listing Price in Florida
+api_key <- "419607d691ef653310100a9f02a02a75"
+series_id <- "MEDLISPRIFL"
+frequency <- "m"
+observation_start <- format(Sys.Date() - 3*365, "%Y-%m-%d") 
+observation_end <- format(Sys.Date(), "%Y-%m-%d") 
+
+url <- sprintf("https://api.stlouisfed.org/fred/series/observations?series_id=%s&api_key=%s&file_type=json&frequency=%s&observation_start=%s&observation_end=%s",
+               series_id, api_key, frequency, observation_start, observation_end)
+
+response <- GET(url)
+
+if (status_code(response) == 200) {
+  data <- content(response, "parsed")
+  if ("observations" %in% names(data)) {
+    df <- data.frame(date = as.Date(sapply(data$observations, `[[`, "date")),
+                     value = as.numeric(sapply(data$observations, `[[`, "value")))
+    
+    
+    print(df)
+    
+    df_recent <- subset(df, date >= as.Date(observation_start))
+    
+    # Median Listing Price 
+    p <- ggplot(df_recent, aes(x = date, y = value)) +
+          geom_line(color = "blue") +
+          labs(x = "Date",
+               y = "Median Listing Price (USD)") +
+          scale_x_date(date_breaks = "3 month", date_labels = "%Y-%m") +
+          theme_minimal(base_size = 15) +
+          theme(panel.background = element_rect(fill = "white"),
+                axis.text.x = element_text(angle = 45, hjust = 1))  
+    
+    print(p)
+    
+    ggsave(filename = "median_listing_price_plot.png", plot = p, width = 10, height = 6, dpi = 300, bg = "white")
+    
+  } else {
+    print("Error: 'observations' field not found in the response data.")
+  }
+  
+} else {
+  print(paste("Error:", status_code(response)))
+  print(content(response, "text"))
+}
+```
